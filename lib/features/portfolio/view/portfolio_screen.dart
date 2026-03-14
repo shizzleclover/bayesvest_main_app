@@ -219,11 +219,18 @@ class _InvestmentInput extends StatefulWidget {
 
 class _InvestmentInputState extends State<_InvestmentInput> {
   final _ctrl = TextEditingController();
+  static final _commaFormatter = _ThousandSeparatorFormatter();
 
   @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
+  }
+
+  double? _parse() {
+    final raw = _ctrl.text.replaceAll(',', '').trim();
+    final v = double.tryParse(raw);
+    return (v != null && v > 0) ? v : null;
   }
 
   @override
@@ -260,10 +267,11 @@ class _InvestmentInputState extends State<_InvestmentInput> {
             controller: _ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+              FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+              _commaFormatter,
             ],
             decoration: InputDecoration(
-              hintText: 'e.g. 10000',
+              hintText: 'e.g. 10,000',
               prefixText: '${widget.currency.symbol} ',
               prefixStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 14.sp,
@@ -274,20 +282,59 @@ class _InvestmentInputState extends State<_InvestmentInput> {
                 icon: Icon(Icons.check_circle_rounded,
                     color: widget.colorScheme.primary, size: 22.w),
                 onPressed: () {
-                  final v = double.tryParse(_ctrl.text.trim());
-                  widget.onChanged(v != null && v > 0 ? v : null);
+                  widget.onChanged(_parse());
                   FocusScope.of(context).unfocus();
                 },
               ),
             ),
-            onSubmitted: (text) {
-              final v = double.tryParse(text.trim());
-              widget.onChanged(v != null && v > 0 ? v : null);
-            },
+            onSubmitted: (_) => widget.onChanged(_parse()),
           ),
         ],
       ),
     );
+  }
+}
+
+/// Inserts thousand-separator commas as the user types (e.g. 1000000 → 1,000,000).
+class _ThousandSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text.replaceAll(',', '');
+    if (text.isEmpty) return newValue;
+
+    final dotIndex = text.indexOf('.');
+    final intPart = dotIndex == -1 ? text : text.substring(0, dotIndex);
+    final decPart = dotIndex == -1 ? '' : text.substring(dotIndex);
+
+    final buf = StringBuffer();
+    for (var i = 0; i < intPart.length; i++) {
+      if (i > 0 && (intPart.length - i) % 3 == 0) buf.write(',');
+      buf.write(intPart[i]);
+    }
+    buf.write(decPart);
+
+    final formatted = buf.toString();
+    final cursorOffset = _adjustedCursor(newValue.text, formatted, newValue.selection.baseOffset);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: cursorOffset),
+    );
+  }
+
+  int _adjustedCursor(String raw, String formatted, int rawCursor) {
+    var digits = 0;
+    for (var i = 0; i < rawCursor && i < raw.length; i++) {
+      if (raw[i] != ',') digits++;
+    }
+    var pos = 0;
+    var count = 0;
+    while (pos < formatted.length && count < digits) {
+      if (formatted[pos] != ',') count++;
+      pos++;
+    }
+    return pos;
   }
 }
 
