@@ -20,6 +20,11 @@ class AppRoutes {
   static const String assetDetail = '/portfolio/:ticker';
   static const String editProfile = '/profile/edit';
   static const String retakeRisk = '/profile/retake-risk';
+  static const String settings = '/settings';
+  static const String projections = '/projections';
+  static const String portfolioHistory = '/portfolio/history';
+  static const String goals = '/goals';
+  static const String watchlist = '/watchlist';
 
   /// Build asset detail path for a given [ticker].
   static String assetDetailPath(String ticker) => '/portfolio/$ticker';

@@ -5,15 +5,20 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/controller/auth_controller.dart';
 import '../../features/auth/view/login_screen.dart';
 import '../../features/auth/view/register_screen.dart';
+import '../../features/goals/view/goals_screen.dart';
 import '../../features/home/view/home_screen.dart';
 import '../../features/onboarding/view/financial_profile_screen.dart';
 import '../../features/onboarding/view/risk_questionnaire_screen.dart';
 import '../../features/portfolio/view/asset_detail_screen.dart';
+import '../../features/portfolio/view/portfolio_history_screen.dart';
 import '../../features/portfolio/view/portfolio_screen.dart';
 import '../../features/profile/view/edit_profile_screen.dart';
 import '../../features/profile/view/profile_screen.dart';
 import '../../features/profile/view/retake_risk_screen.dart';
+import '../../features/projections/view/projection_screen.dart';
+import '../../features/settings/view/settings_screen.dart';
 import '../../features/splash/view/splash_screen.dart';
+import '../../features/watchlist/view/watchlist_screen.dart';
 import '../widgets/main_shell.dart';
 import 'route_names.dart';
 import 'route_transitions.dart';
@@ -21,8 +26,6 @@ import 'route_transitions.dart';
 final GlobalKey<NavigatorState> _rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
 
-/// Converts auth state changes into a [Listenable] that GoRouter
-/// can subscribe to via [GoRouter.refreshListenable].
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
     ref.listen<AuthState>(authControllerProvider, (_, __) {
@@ -31,8 +34,6 @@ class _AuthRefreshNotifier extends ChangeNotifier {
   }
 }
 
-/// Top-level router exposed as a Riverpod provider so it can
-/// react to auth state changes for redirect guards.
 final routerProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = _AuthRefreshNotifier(ref);
 
@@ -90,7 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             fadeSlideTransition(state: state, child: const RegisterScreen()),
       ),
 
-      // ── Onboarding (horizontal slide like a wizard) ────────
+      // ── Onboarding ──────────────────────────────────────────
       GoRoute(
         path: AppRoutes.onboardingProfile,
         pageBuilder: (context, state) => slideHorizontalTransition(
@@ -156,6 +157,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.retakeRisk,
         pageBuilder: (context, state) => slideUpTransition(
             state: state, child: const RetakeRiskScreen()),
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        pageBuilder: (context, state) => slideUpTransition(
+            state: state, child: const SettingsScreen()),
+      ),
+      GoRoute(
+        path: AppRoutes.projections,
+        pageBuilder: (context, state) => slideUpTransition(
+            state: state, child: const ProjectionScreen()),
+      ),
+      GoRoute(
+        path: AppRoutes.portfolioHistory,
+        pageBuilder: (context, state) => slideUpTransition(
+            state: state, child: const PortfolioHistoryScreen()),
+      ),
+      GoRoute(
+        path: AppRoutes.goals,
+        pageBuilder: (context, state) => slideUpTransition(
+            state: state, child: const GoalsScreen()),
+      ),
+      GoRoute(
+        path: AppRoutes.watchlist,
+        pageBuilder: (context, state) => slideUpTransition(
+            state: state, child: const WatchlistScreen()),
       ),
     ],
   );

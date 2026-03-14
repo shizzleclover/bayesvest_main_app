@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'core/utils/logger.dart';
 
 Future<void> main() async {
@@ -29,6 +30,7 @@ class MainApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeProvider);
 
     return ScreenUtilInit(
       designSize: const Size(375, 812),
@@ -40,7 +42,7 @@ class MainApp extends ConsumerWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
-          themeMode: ThemeMode.system,
+          themeMode: themeMode,
           routerConfig: router,
         );
       },

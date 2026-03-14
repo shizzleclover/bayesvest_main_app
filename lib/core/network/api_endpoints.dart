@@ -17,7 +17,23 @@ class ApiEndpoints {
   // ── Portfolio ────────────────────────────────────────────
   static const String generatePortfolio = '/api/portfolio/generate/';
   static const String latestPortfolio = '/api/portfolio/latest/';
+  static const String portfolioHistory = '/api/portfolio/history/';
 
   // ── Market ─────────────────────────────────────────────
   static String assetDetail(String ticker) => '/api/market/asset/$ticker/';
+
+  // ── Goals ──────────────────────────────────────────────
+  static const String goals = '/api/goals/';
+  static String goalDetail(String id) => '/api/goals/$id/';
+
+  // ── Watchlist ──────────────────────────────────────────
+  static const String watchlist = '/api/watchlist/';
+  static const String watchlistAdd = '/api/watchlist/add/';
+  static const String watchlistRemove = '/api/watchlist/remove/';
+
+  // ── News ───────────────────────────────────────────────
+  static const String marketNews = '/api/market/news/';
+
+  // ── Drift / Rebalance ─────────────────────────────────
+  static const String portfolioDrift = '/api/portfolio/drift/';
 }

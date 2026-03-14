@@ -37,13 +37,30 @@ class ProfileScreen extends ConsumerWidget {
 
               AnimatedListItem(
                 index: 0,
-                child: Text(
-                  'Profile',
-                  style: GoogleFonts.manrope(
-                    fontSize: 28.sp,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Profile',
+                      style: GoogleFonts.manrope(
+                        fontSize: 28.sp,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => context.push(AppRoutes.settings),
+                      child: Container(
+                        padding: EdgeInsets.all(10.w),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerLowest,
+                          borderRadius: AppRadius.card,
+                        ),
+                        child: Icon(Icons.settings_rounded,
+                            size: 22.w, color: colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
