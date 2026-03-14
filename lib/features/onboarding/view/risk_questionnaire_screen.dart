@@ -20,7 +20,7 @@ class _Question {
 
 const _questions = <_Question>[
   _Question('age_bracket', 'What is your current age bracket?',
-      ['Under 30', '30 - 45', '46 - 60', '60+']),
+      ['18 - 25', '25 - 29', '30 - 45', '46 - 60', '60+']),
   _Question('horizon', 'When do you expect to need this capital?', [
     'Long-Term (10+ years)',
     'Medium-Term (3-10 years)',

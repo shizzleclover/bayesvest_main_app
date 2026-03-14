@@ -21,4 +21,18 @@ class PortfolioService {
     AppLogger.debug('generatePortfolio status=${response.statusCode}', tag: _tag);
     return Portfolio.fromJson(response.data as Map<String, dynamic>);
   }
+
+  Future<Portfolio?> getLatestPortfolio() async {
+    AppLogger.info('GET ${ApiEndpoints.latestPortfolio}', tag: _tag);
+    try {
+      final response = await _dio.get(ApiEndpoints.latestPortfolio);
+      return Portfolio.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        AppLogger.info('No existing portfolio found', tag: _tag);
+        return null;
+      }
+      rethrow;
+    }
+  }
 }

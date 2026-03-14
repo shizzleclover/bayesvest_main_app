@@ -16,6 +16,7 @@ import '../../features/profile/view/retake_risk_screen.dart';
 import '../../features/splash/view/splash_screen.dart';
 import '../widgets/main_shell.dart';
 import 'route_names.dart';
+import 'route_transitions.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -51,25 +52,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnOnboarding = currentPath == AppRoutes.onboardingProfile ||
           currentPath == AppRoutes.onboardingRisk;
 
-      // While initialising or loading, stay on splash.
       if (authState is AuthInitial || authState is AuthLoading) {
         return isOnSplash ? null : AppRoutes.splash;
       }
 
-      // Not authenticated → force login (unless already there).
       if (authState is Unauthenticated || authState is AuthError) {
         return isOnAuth ? null : AppRoutes.login;
       }
 
-      // Authenticated — route depends on onboarding status.
       if (authState is Authenticated) {
         if (!authState.hasCompletedOnboarding) {
-          // New user: send to onboarding from splash/auth screens.
-          // Allow staying on onboarding routes.
           if (isOnSplash || isOnAuth) return AppRoutes.onboardingProfile;
           if (isOnOnboarding) return null;
         } else {
-          // Returning user: don't allow splash, auth, or onboarding.
           if (isOnSplash || isOnAuth || isOnOnboarding) return AppRoutes.home;
         }
       }
@@ -81,25 +76,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── Pre-Auth ───────────────────────────────────────────
       GoRoute(
         path: AppRoutes.splash,
-        builder: (context, state) => const SplashScreen(),
+        pageBuilder: (context, state) =>
+            fadeTransition(state: state, child: const SplashScreen()),
       ),
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) =>
+            fadeSlideTransition(state: state, child: const LoginScreen()),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) =>
+            fadeSlideTransition(state: state, child: const RegisterScreen()),
       ),
 
-      // ── Onboarding ─────────────────────────────────────────
+      // ── Onboarding (horizontal slide like a wizard) ────────
       GoRoute(
         path: AppRoutes.onboardingProfile,
-        builder: (context, state) => const FinancialProfileScreen(),
+        pageBuilder: (context, state) => slideHorizontalTransition(
+            state: state, child: const FinancialProfileScreen()),
       ),
       GoRoute(
         path: AppRoutes.onboardingRisk,
-        builder: (context, state) => const RiskQuestionnaireScreen(),
+        pageBuilder: (context, state) => slideHorizontalTransition(
+            state: state, child: const RiskQuestionnaireScreen()),
       ),
 
       // ── Main App (Bottom Nav Shell) ────────────────────────
@@ -107,52 +107,55 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             MainShell(navigationShell: navigationShell),
         branches: [
-          // Tab 0 — Home
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: AppRoutes.home,
-                builder: (context, state) => const HomeScreen(),
+                pageBuilder: (context, state) =>
+                    fadeTransition(state: state, child: const HomeScreen()),
               ),
             ],
           ),
-
-          // Tab 1 — Portfolio
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: AppRoutes.portfolio,
-                builder: (context, state) => const PortfolioScreen(),
+                pageBuilder: (context, state) => fadeTransition(
+                    state: state, child: const PortfolioScreen()),
               ),
             ],
           ),
-
-          // Tab 2 — Profile
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: AppRoutes.profile,
-                builder: (context, state) => const ProfileScreen(),
+                pageBuilder: (context, state) => fadeTransition(
+                    state: state, child: const ProfileScreen()),
               ),
             ],
           ),
         ],
       ),
 
-      // ── Sub-Pages (full-screen, no bottom nav) ─────────────
+      // ── Sub-Pages (slide up, no bottom nav) ────────────────
       GoRoute(
         path: AppRoutes.assetDetail,
-        builder: (context, state) => AssetDetailScreen(
-          ticker: state.pathParameters['ticker']!,
+        pageBuilder: (context, state) => slideUpTransition(
+          state: state,
+          child: AssetDetailScreen(
+            ticker: state.pathParameters['ticker']!,
+          ),
         ),
       ),
       GoRoute(
         path: AppRoutes.editProfile,
-        builder: (context, state) => const EditProfileScreen(),
+        pageBuilder: (context, state) => slideUpTransition(
+            state: state, child: const EditProfileScreen()),
       ),
       GoRoute(
         path: AppRoutes.retakeRisk,
-        builder: (context, state) => const RetakeRiskScreen(),
+        pageBuilder: (context, state) => slideUpTransition(
+            state: state, child: const RetakeRiskScreen()),
       ),
     ],
   );

@@ -16,4 +16,8 @@ class ApiEndpoints {
 
   // ── Portfolio ────────────────────────────────────────────
   static const String generatePortfolio = '/api/portfolio/generate/';
+  static const String latestPortfolio = '/api/portfolio/latest/';
+
+  // ── Market ─────────────────────────────────────────────
+  static String assetDetail(String ticker) => '/api/market/asset/$ticker/';
 }

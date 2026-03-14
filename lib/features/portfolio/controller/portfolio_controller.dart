@@ -9,11 +9,42 @@ final portfolioControllerProvider =
   PortfolioController.new,
 );
 
+/// Holds an optional investment amount the user wants to allocate.
+final investmentAmountProvider =
+    NotifierProvider<InvestmentAmountNotifier, double?>(
+  InvestmentAmountNotifier.new,
+);
+
+class InvestmentAmountNotifier extends Notifier<double?> {
+  @override
+  double? build() => null;
+
+  void set(double? value) => state = value;
+}
+
 class PortfolioController extends AsyncNotifier<Portfolio?> {
   static const _tag = 'PortfolioCtrl';
 
   @override
-  Future<Portfolio?> build() async => null;
+  Future<Portfolio?> build() async {
+    AppLogger.info('build() — fetching latest portfolio', tag: _tag);
+    try {
+      final service = ref.read(portfolioServiceProvider);
+      final portfolio = await service.getLatestPortfolio();
+      if (portfolio != null) {
+        AppLogger.info(
+          'loaded existing portfolio: ${portfolio.assetAllocation.length} assets',
+          tag: _tag,
+        );
+      } else {
+        AppLogger.info('no existing portfolio', tag: _tag);
+      }
+      return portfolio;
+    } catch (e) {
+      AppLogger.error('failed to load portfolio', tag: _tag, error: e);
+      return null;
+    }
+  }
 
   Future<void> generate() async {
     AppLogger.info('generate() called', tag: _tag);

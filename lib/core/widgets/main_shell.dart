@@ -26,6 +26,7 @@ class MainShell extends StatelessWidget {
         backgroundColor: colorScheme.surfaceContainerLowest,
         indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.12),
         elevation: 0,
+        animationDuration: const Duration(milliseconds: 400),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

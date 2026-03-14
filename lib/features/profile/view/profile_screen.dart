@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../core/utils/currency.dart';
+import '../../../core/widgets/animated_list_item.dart';
 import '../../../core/widgets/currency_toggle.dart';
 import '../../../core/widgets/risk_badge.dart';
 import '../../auth/controller/auth_controller.dart';
@@ -34,19 +35,24 @@ class ProfileScreen extends ConsumerWidget {
             children: [
               SizedBox(height: 24.h),
 
-              Text(
-                'Profile',
-                style: GoogleFonts.manrope(
-                  fontSize: 28.sp,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
+              AnimatedListItem(
+                index: 0,
+                child: Text(
+                  'Profile',
+                  style: GoogleFonts.manrope(
+                    fontSize: 28.sp,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ),
 
               SizedBox(height: 28.h),
 
               // ── User info card ────────────────────────────
-              Container(
+              AnimatedListItem(
+                index: 1,
+                child: Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(20.w),
                 decoration: BoxDecoration(
@@ -102,12 +108,14 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ),
+              )),
 
               SizedBox(height: 24.h),
 
               // ── Financial summary ─────────────────────────
-              profileAsync.when(
+              AnimatedListItem(
+                index: 2,
+                child: profileAsync.when(
                 data: (profile) {
                   if (profile == null) {
                     return Container(
@@ -137,16 +145,19 @@ class ProfileScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Financial Summary',
-                              style: GoogleFonts.manrope(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
+                            Flexible(
+                              child: Text(
+                                'Financial Summary',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            SizedBox(width: 8.w),
                             const CurrencyToggle(),
                           ],
                         ),
@@ -183,32 +194,41 @@ class ProfileScreen extends ConsumerWidget {
                       child: CircularProgressIndicator(strokeWidth: 2)),
                 ),
                 error: (_, __) => const SizedBox.shrink(),
-              ),
+              )),
 
               SizedBox(height: 32.h),
 
               // ── Action buttons ────────────────────────────
-              _ActionTile(
-                icon: Icons.edit_note_rounded,
-                label: 'Edit Financial Profile',
-                onTap: () => context.push(AppRoutes.editProfile),
-                colorScheme: colorScheme,
+              AnimatedListItem(
+                index: 3,
+                child: _ActionTile(
+                  icon: Icons.edit_note_rounded,
+                  label: 'Edit Financial Profile',
+                  onTap: () => context.push(AppRoutes.editProfile),
+                  colorScheme: colorScheme,
+                ),
               ),
               SizedBox(height: 12.h),
-              _ActionTile(
-                icon: Icons.shield_outlined,
-                label: 'Retake Risk Assessment',
-                onTap: () => context.push(AppRoutes.retakeRisk),
-                colorScheme: colorScheme,
+              AnimatedListItem(
+                index: 4,
+                child: _ActionTile(
+                  icon: Icons.shield_outlined,
+                  label: 'Retake Risk Assessment',
+                  onTap: () => context.push(AppRoutes.retakeRisk),
+                  colorScheme: colorScheme,
+                ),
               ),
               SizedBox(height: 12.h),
-              _ActionTile(
-                icon: Icons.logout_rounded,
-                label: 'Logout',
-                isDestructive: true,
-                onTap: () =>
-                    ref.read(authControllerProvider.notifier).logout(),
-                colorScheme: colorScheme,
+              AnimatedListItem(
+                index: 5,
+                child: _ActionTile(
+                  icon: Icons.logout_rounded,
+                  label: 'Logout',
+                  isDestructive: true,
+                  onTap: () =>
+                      ref.read(authControllerProvider.notifier).logout(),
+                  colorScheme: colorScheme,
+                ),
               ),
 
               SizedBox(height: 24.h),

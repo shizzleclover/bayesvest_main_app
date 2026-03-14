@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../../core/utils/currency.dart';
+import '../../../core/widgets/animated_list_item.dart';
 import '../../../core/widgets/risk_badge.dart';
 import '../../onboarding/controller/onboarding_controller.dart';
 import '../controller/portfolio_controller.dart';
@@ -42,6 +45,8 @@ class PortfolioScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final portfolioAsync = ref.watch(portfolioControllerProvider);
     final riskAsync = ref.watch(riskControllerProvider);
+    final investAmount = ref.watch(investmentAmountProvider);
+    final currency = ref.watch(currencyProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -90,8 +95,8 @@ class PortfolioScreen extends ConsumerWidget {
             }
 
             return RefreshIndicator(
-              onRefresh: () =>
-                  ref.read(portfolioControllerProvider.notifier).generate(),
+              onRefresh: () async =>
+                  ref.invalidate(portfolioControllerProvider),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: AppSpacing.screenPadding,
@@ -100,51 +105,89 @@ class PortfolioScreen extends ConsumerWidget {
                   children: [
                     SizedBox(height: 20.h),
 
-                    Text(
-                      'Your Portfolio',
-                      style: GoogleFonts.manrope(
-                        fontSize: 28.sp,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurface,
+                    AnimatedListItem(
+                      index: 0,
+                      child: Text(
+                        'Your Portfolio',
+                        style: GoogleFonts.manrope(
+                          fontSize: 28.sp,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 24.h),
+
+                    // ── Investment amount input ─────────────────
+                    AnimatedListItem(
+                      index: 1,
+                      child: _InvestmentInput(
+                        currency: currency,
+                        colorScheme: colorScheme,
+                        onChanged: (v) =>
+                            ref.read(investmentAmountProvider.notifier).set(v),
                       ),
                     ),
 
                     SizedBox(height: 24.h),
 
                     // ── Risk summary card ────────────────────
-                    _RiskSummaryCard(
-                      portfolio: portfolio,
-                      riskScore: riskAsync.asData?.value?.riskScore,
-                      colorScheme: colorScheme,
+                    AnimatedListItem(
+                      index: 2,
+                      child: _RiskSummaryCard(
+                        portfolio: portfolio,
+                        riskScore: riskAsync.asData?.value?.riskScore,
+                        colorScheme: colorScheme,
+                      ),
                     ),
 
                     SizedBox(height: 24.h),
 
                     // ── Donut chart ──────────────────────────
-                    _AllocationChart(portfolio: portfolio),
+                    AnimatedListItem(
+                      index: 3,
+                      child: _AllocationChart(
+                        portfolio: portfolio,
+                        investAmount: investAmount,
+                        currency: currency,
+                      ),
+                    ),
 
                     SizedBox(height: 24.h),
 
                     // ── Per-asset cards ──────────────────────
-                    Text(
-                      'Asset Breakdown',
-                      style: GoogleFonts.manrope(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurface,
+                    AnimatedListItem(
+                      index: 4,
+                      child: Text(
+                        'Asset Breakdown',
+                        style: GoogleFonts.manrope(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
                       ),
                     ),
                     SizedBox(height: 16.h),
 
-                    ...portfolio.reasoning.map((asset) => Padding(
+                    ...portfolio.reasoning.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final asset = entry.value;
+                      return AnimatedListItem(
+                        index: i + 5,
+                        child: Padding(
                           padding: EdgeInsets.only(bottom: 12.h),
                           child: _AssetCard(
                             asset: asset,
+                            investAmount: investAmount,
+                            currency: currency,
                             colorScheme: colorScheme,
                             onTap: () => context.push(
                                 AppRoutes.assetDetailPath(asset.ticker)),
                           ),
-                        )),
+                        ),
+                      );
+                    }),
 
                     SizedBox(height: 24.h),
                   ],
@@ -153,6 +196,96 @@ class PortfolioScreen extends ConsumerWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+// ── Investment Amount Input ──────────────────────────────────
+
+class _InvestmentInput extends StatefulWidget {
+  const _InvestmentInput({
+    required this.currency,
+    required this.colorScheme,
+    required this.onChanged,
+  });
+  final AppCurrency currency;
+  final ColorScheme colorScheme;
+  final ValueChanged<double?> onChanged;
+
+  @override
+  State<_InvestmentInput> createState() => _InvestmentInputState();
+}
+
+class _InvestmentInputState extends State<_InvestmentInput> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: widget.colorScheme.surfaceContainerLowest,
+        borderRadius: AppRadius.card,
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'How much do you want to invest?',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+              color: widget.colorScheme.onSurface,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Enter an amount to see how your money will be spread across assets',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.sp,
+              color: widget.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: 14.h),
+          TextField(
+            controller: _ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+            ],
+            decoration: InputDecoration(
+              hintText: 'e.g. 10000',
+              prefixText: '${widget.currency.symbol} ',
+              prefixStyle: GoogleFonts.plusJakartaSans(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: widget.colorScheme.onSurfaceVariant,
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(Icons.check_circle_rounded,
+                    color: widget.colorScheme.primary, size: 22.w),
+                onPressed: () {
+                  final v = double.tryParse(_ctrl.text.trim());
+                  widget.onChanged(v != null && v > 0 ? v : null);
+                  FocusScope.of(context).unfocus();
+                },
+              ),
+            ),
+            onSubmitted: (text) {
+              final v = double.tryParse(text.trim());
+              widget.onChanged(v != null && v > 0 ? v : null);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -220,8 +353,14 @@ class _RiskSummaryCard extends StatelessWidget {
 // ── Donut Chart ─────────────────────────────────────────────
 
 class _AllocationChart extends StatelessWidget {
-  const _AllocationChart({required this.portfolio});
+  const _AllocationChart({
+    required this.portfolio,
+    this.investAmount,
+    required this.currency,
+  });
   final Portfolio portfolio;
+  final double? investAmount;
+  final AppCurrency currency;
 
   @override
   Widget build(BuildContext context) {
@@ -262,6 +401,10 @@ class _AllocationChart extends StatelessWidget {
             runSpacing: 8.h,
             children: List.generate(entries.length, (i) {
               final e = entries[i];
+              final pct = (e.value * 100).toStringAsFixed(0);
+              final amountLabel = investAmount != null
+                  ? ' \u2022 ${formatAmount(e.value * investAmount!, currency)}'
+                  : '';
               return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -274,12 +417,15 @@ class _AllocationChart extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: 6.w),
-                  Text(
-                    '${e.key} ${(e.value * 100).toStringAsFixed(0)}%',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onSurface,
+                  Flexible(
+                    child: Text(
+                      '${e.key} $pct%$amountLabel',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -299,13 +445,21 @@ class _AssetCard extends StatelessWidget {
     required this.asset,
     required this.colorScheme,
     required this.onTap,
+    required this.currency,
+    this.investAmount,
   });
   final AssetReasoning asset;
   final ColorScheme colorScheme;
   final VoidCallback onTap;
+  final AppCurrency currency;
+  final double? investAmount;
 
   @override
   Widget build(BuildContext context) {
+    final allocAmount = investAmount != null
+        ? formatAmount(investAmount! * asset.allocationPct / 100, currency)
+        : null;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -338,26 +492,42 @@ class _AssetCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.12),
-                    borderRadius: AppRadius.pill,
-                  ),
-                  child: Text(
-                    '${asset.allocationPct.toStringAsFixed(1)}%',
-                    style: GoogleFonts.manrope(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.primary,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer
+                            .withValues(alpha: 0.12),
+                        borderRadius: AppRadius.pill,
+                      ),
+                      child: Text(
+                        '${asset.allocationPct.toStringAsFixed(1)}%',
+                        style: GoogleFonts.manrope(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (allocAmount != null) ...[
+                      SizedBox(height: 4.h),
+                      Text(
+                        allocAmount,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.tertiary,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
             SizedBox(height: 16.h),
-            // Suitability bar
             Row(
               children: [
                 Text('Suitability',
