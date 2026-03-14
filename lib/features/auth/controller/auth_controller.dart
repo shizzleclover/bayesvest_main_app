@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/api_error.dart';
+import '../../../core/utils/logger.dart';
 import '../model/user_model.dart';
 import '../service/auth_service.dart';
 
- 
+// ── Auth State ─────────────────────────────────────────────
 
 sealed class AuthState {
   const AuthState();
@@ -21,7 +23,8 @@ class AuthLoading extends AuthState {
 
 class Authenticated extends AuthState {
   final User user;
-  const Authenticated(this.user);
+  final bool hasCompletedOnboarding;
+  const Authenticated(this.user, {this.hasCompletedOnboarding = true});
 }
 
 class Unauthenticated extends AuthState {
@@ -41,33 +44,42 @@ final authControllerProvider =
 // ── Controller ─────────────────────────────────────────────
 
 class AuthController extends Notifier<AuthState> {
+  static const _tag = 'Auth';
+
   @override
   AuthState build() => const AuthInitial();
 
   /// Check whether a stored JWT exists. Called once from the splash screen.
   Future<void> checkAuth() async {
+    AppLogger.info('checkAuth() called', tag: _tag);
     state = const AuthLoading();
     final tokenStorage = ref.read(tokenStorageProvider);
     final hasToken = await tokenStorage.hasTokens();
+    AppLogger.debug('hasToken=$hasToken', tag: _tag);
 
     if (hasToken) {
-      // Token exists — attempt to validate by fetching profile.
-      // If the token is expired the interceptor will clear it and
-      // a DioException (401) will land in the catch block.
       try {
         final dio = ref.read(dioProvider);
         await dio.get('/api/users/profile/');
-        // If we get here the token is valid. We don't have user
-        // info cached, so build a minimal User from the token claims
-        // (id stored in secure storage isn't available; email will
-        // be fetched on the home screen). For now, mark authenticated.
         final email = await tokenStorage.getEmail() ?? '';
-        state = Authenticated(User(id: '', email: email));
+        AppLogger.info('Token valid, profile exists, email=$email', tag: _tag);
+        state = Authenticated(
+          User(id: '', email: email),
+          hasCompletedOnboarding: true,
+        );
       } on DioException catch (e) {
         if (e.response?.statusCode == 404) {
           final email = await tokenStorage.getEmail() ?? '';
-          state = Authenticated(User(id: '', email: email));
+          AppLogger.info('Token valid, no profile yet — needs onboarding', tag: _tag);
+          state = Authenticated(
+            User(id: '', email: email),
+            hasCompletedOnboarding: false,
+          );
         } else {
+          AppLogger.warning(
+            'checkAuth failed: ${e.response?.statusCode}',
+            tag: _tag,
+          );
           await tokenStorage.clearTokens();
           state = const Unauthenticated();
         }
@@ -81,6 +93,7 @@ class AuthController extends Notifier<AuthState> {
     required String email,
     required String password,
   }) async {
+    AppLogger.info('login() email=$email', tag: _tag);
     state = const AuthLoading();
     try {
       final service = ref.read(authServiceProvider);
@@ -97,12 +110,27 @@ class AuthController extends Notifier<AuthState> {
       );
       await tokenStorage.saveEmail(response.user.email);
 
-      state = Authenticated(response.user);
+      // Check if user has a profile (returning vs new user).
+      final dio = ref.read(dioProvider);
+      bool onboarded = true;
+      try {
+        await dio.get('/api/users/profile/');
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) onboarded = false;
+      }
+
+      AppLogger.info(
+        'login() success email=${response.user.email} onboarded=$onboarded',
+        tag: _tag,
+      );
+      state = Authenticated(response.user, hasCompletedOnboarding: onboarded);
     } on DioException catch (e) {
-      final message =
-          (e.response?.data as Map<String, dynamic>?)?['error'] as String? ??
-              'Login failed. Please try again.';
+      final message = extractApiError(e, fallback: 'Login failed. Please try again.');
+      AppLogger.error('login() failed: $message', tag: _tag, error: e);
       state = AuthError(message);
+    } catch (e, st) {
+      AppLogger.error('login() unexpected error', tag: _tag, error: e, stackTrace: st);
+      state = AuthError(e.toString());
     }
   }
 
@@ -110,6 +138,7 @@ class AuthController extends Notifier<AuthState> {
     required String email,
     required String password,
   }) async {
+    AppLogger.info('register() email=$email', tag: _tag);
     state = const AuthLoading();
     try {
       final service = ref.read(authServiceProvider);
@@ -126,16 +155,32 @@ class AuthController extends Notifier<AuthState> {
       );
       await tokenStorage.saveEmail(response.user.email);
 
-      state = Authenticated(response.user);
+      AppLogger.info('register() success — needs onboarding', tag: _tag);
+      state = Authenticated(
+        response.user,
+        hasCompletedOnboarding: false,
+      );
     } on DioException catch (e) {
-      final message =
-          (e.response?.data as Map<String, dynamic>?)?['error'] as String? ??
-              'Registration failed. Please try again.';
+      final message = extractApiError(e, fallback: 'Registration failed. Please try again.');
+      AppLogger.error('register() failed: $message', tag: _tag, error: e);
       state = AuthError(message);
+    } catch (e, st) {
+      AppLogger.error('register() unexpected error', tag: _tag, error: e, stackTrace: st);
+      state = AuthError(e.toString());
+    }
+  }
+
+  /// Mark onboarding as complete (called after risk questionnaire).
+  void markOnboardingComplete() {
+    final current = state;
+    if (current is Authenticated) {
+      AppLogger.info('markOnboardingComplete()', tag: _tag);
+      state = Authenticated(current.user, hasCompletedOnboarding: true);
     }
   }
 
   Future<void> logout() async {
+    AppLogger.info('logout()', tag: _tag);
     final tokenStorage = ref.read(tokenStorageProvider);
     await tokenStorage.clearTokens();
     state = const Unauthenticated();

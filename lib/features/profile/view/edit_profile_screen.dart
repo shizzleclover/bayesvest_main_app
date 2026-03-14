@@ -4,6 +4,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/dimensions.dart';
+import '../../../core/utils/currency.dart';
+import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/currency_toggle.dart';
 import '../../../core/widgets/gradient_button.dart';
 import '../../onboarding/controller/onboarding_controller.dart';
 import '../../onboarding/model/financial_profile.dart';
@@ -25,7 +28,36 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _saving = false;
   bool _prefilled = false;
 
-  static const _goals = [
+  static const _goalItems = [
+    AppDropdownItem(value: 'Retirement', label: 'Retirement', icon: Icons.beach_access_rounded),
+    AppDropdownItem(value: 'Home Purchase', label: 'Home Purchase', icon: Icons.home_rounded),
+    AppDropdownItem(value: 'Education', label: 'Education', icon: Icons.school_rounded),
+    AppDropdownItem(value: 'Wealth Building', label: 'Wealth Building', icon: Icons.trending_up_rounded),
+    AppDropdownItem(value: 'Other', label: 'Other', icon: Icons.more_horiz_rounded),
+  ];
+
+  static const _horizonItems = [
+    AppDropdownItem(
+      value: 'Short-term (0-3 years)',
+      label: 'Short-term',
+      subtitle: '0 \u2013 3 years',
+      icon: Icons.flash_on_rounded,
+    ),
+    AppDropdownItem(
+      value: 'Medium-term (3-10 years)',
+      label: 'Medium-term',
+      subtitle: '3 \u2013 10 years',
+      icon: Icons.timeline_rounded,
+    ),
+    AppDropdownItem(
+      value: 'Long-term (10+ years)',
+      label: 'Long-term',
+      subtitle: '10+ years',
+      icon: Icons.landscape_rounded,
+    ),
+  ];
+
+  static const _goalValues = [
     'Retirement',
     'Home Purchase',
     'Education',
@@ -33,7 +65,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     'Other',
   ];
 
-  static const _horizons = [
+  static const _horizonValues = [
     'Short-term (0-3 years)',
     'Medium-term (3-10 years)',
     'Long-term (10+ years)',
@@ -58,9 +90,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       _savingsCtrl.text = profile.savings!.toStringAsFixed(0);
     }
     _selectedGoal =
-        _goals.contains(profile.goals) ? profile.goals : null;
+        _goalValues.contains(profile.goals) ? profile.goals : null;
     _selectedHorizon =
-        _horizons.contains(profile.horizon) ? profile.horizon : null;
+        _horizonValues.contains(profile.horizon) ? profile.horizon : null;
   }
 
   Future<void> _submit() async {
@@ -94,7 +126,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final profileAsync = ref.watch(profileControllerProvider);
+    final currency = ref.watch(currencyProvider);
 
     profileAsync.whenData((p) {
       if (p != null) _prefill(p);
@@ -120,6 +154,24 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               children: [
                 SizedBox(height: 8.h),
 
+                // ── Currency toggle ─────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Currency',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const CurrencyToggle(),
+                  ],
+                ),
+
+                SizedBox(height: 24.h),
+
                 _FieldLabel('Age'),
                 SizedBox(height: 8.h),
                 TextFormField(
@@ -137,13 +189,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
                 SizedBox(height: 20.h),
 
-                _FieldLabel('Annual Income (\$)'),
+                _FieldLabel('Annual Income (${currency.symbol})'),
                 SizedBox(height: 8.h),
                 TextFormField(
                   controller: _incomeCtrl,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(hintText: 'e.g. 75000'),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. 75000',
+                    prefixText: '${currency.symbol} ',
+                    prefixStyle: GoogleFonts.plusJakartaSans(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
                     if (double.tryParse(v.trim()) == null) return 'Enter a number';
@@ -153,13 +213,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
                 SizedBox(height: 20.h),
 
-                _FieldLabel('Current Savings (\$)'),
+                _FieldLabel('Current Savings (${currency.symbol})'),
                 SizedBox(height: 8.h),
                 TextFormField(
                   controller: _savingsCtrl,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(hintText: 'e.g. 15000'),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. 15000',
+                    prefixText: '${currency.symbol} ',
+                    prefixStyle: GoogleFonts.plusJakartaSans(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
                     if (double.tryParse(v.trim()) == null) return 'Enter a number';
@@ -171,12 +239,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
                 _FieldLabel('Financial Goal'),
                 SizedBox(height: 8.h),
-                DropdownButtonFormField<String>(
+                AppDropdown<String>(
+                  items: _goalItems,
                   value: _selectedGoal,
-                  decoration: const InputDecoration(hintText: 'Select a goal'),
-                  items: _goals
-                      .map((g) => DropdownMenuItem(value: g, child: Text(g)))
-                      .toList(),
+                  label: 'Financial Goal',
+                  hintText: 'Select a goal',
                   onChanged: (v) => setState(() => _selectedGoal = v),
                   validator: (v) => v == null ? 'Please select a goal' : null,
                 ),
@@ -185,13 +252,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
                 _FieldLabel('Investment Horizon'),
                 SizedBox(height: 8.h),
-                DropdownButtonFormField<String>(
+                AppDropdown<String>(
+                  items: _horizonItems,
                   value: _selectedHorizon,
-                  decoration:
-                      const InputDecoration(hintText: 'Select a horizon'),
-                  items: _horizons
-                      .map((h) => DropdownMenuItem(value: h, child: Text(h)))
-                      .toList(),
+                  label: 'Investment Horizon',
+                  hintText: 'Select a horizon',
                   onChanged: (v) => setState(() => _selectedHorizon = v),
                   validator: (v) => v == null ? 'Please select a horizon' : null,
                 ),

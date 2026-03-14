@@ -48,6 +48,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnSplash = currentPath == AppRoutes.splash;
       final isOnAuth =
           currentPath == AppRoutes.login || currentPath == AppRoutes.register;
+      final isOnOnboarding = currentPath == AppRoutes.onboardingProfile ||
+          currentPath == AppRoutes.onboardingRisk;
 
       // While initialising or loading, stay on splash.
       if (authState is AuthInitial || authState is AuthLoading) {
@@ -59,9 +61,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isOnAuth ? null : AppRoutes.login;
       }
 
-      // Authenticated → don't allow back to splash or auth screens.
+      // Authenticated — route depends on onboarding status.
       if (authState is Authenticated) {
-        if (isOnSplash || isOnAuth) return AppRoutes.home;
+        if (!authState.hasCompletedOnboarding) {
+          // New user: send to onboarding from splash/auth screens.
+          // Allow staying on onboarding routes.
+          if (isOnSplash || isOnAuth) return AppRoutes.onboardingProfile;
+          if (isOnOnboarding) return null;
+        } else {
+          // Returning user: don't allow splash, auth, or onboarding.
+          if (isOnSplash || isOnAuth || isOnOnboarding) return AppRoutes.home;
+        }
       }
 
       return null;

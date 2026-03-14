@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../../core/utils/currency.dart';
+import '../../../core/widgets/currency_toggle.dart';
 import '../../../core/widgets/risk_badge.dart';
 import '../../auth/controller/auth_controller.dart';
 import '../../onboarding/controller/onboarding_controller.dart';
@@ -21,6 +23,7 @@ class ProfileScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileControllerProvider);
 
     final email = authState is Authenticated ? authState.user.email : '';
+    final currency = ref.watch(currencyProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -82,7 +85,10 @@ class ProfileScreen extends ConsumerWidget {
                                         fontSize: 13.sp,
                                         color: colorScheme.onSurfaceVariant));
                               }
-                              return RiskBadge(riskScore: risk.riskScore);
+                              return RiskBadge(
+                                band: risk.riskScore,
+                                rawScore: risk.rawScore,
+                              );
                             },
                             loading: () => SizedBox(
                               width: 16.w,
@@ -130,13 +136,19 @@ class ProfileScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Financial Summary',
-                          style: GoogleFonts.manrope(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Financial Summary',
+                              style: GoogleFonts.manrope(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const CurrencyToggle(),
+                          ],
                         ),
                         SizedBox(height: 16.h),
                         _SummaryRow(
@@ -145,13 +157,11 @@ class ProfileScreen extends ConsumerWidget {
                             colorScheme: colorScheme),
                         _SummaryRow(
                             label: 'Income',
-                            value:
-                                '\$${profile.income?.toStringAsFixed(0) ?? '-'}',
+                            value: formatAmount(profile.income, currency),
                             colorScheme: colorScheme),
                         _SummaryRow(
                             label: 'Savings',
-                            value:
-                                '\$${profile.savings?.toStringAsFixed(0) ?? '-'}',
+                            value: formatAmount(profile.savings, currency),
                             colorScheme: colorScheme),
                         if (profile.goals != null)
                           _SummaryRow(

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../auth/controller/auth_controller.dart';
 import '../controller/onboarding_controller.dart';
 
 /// Question data — matches the backend answer keys and the options
@@ -100,13 +101,19 @@ class _RiskQuestionnaireScreenState
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _ScoreDialog(score: result.computedRiskScore),
+      builder: (_) => _ScoreDialog(
+        score: result.computedRiskScore,
+        rawScore: result.rawScore,
+        riskLevel: result.riskLevel,
+      ),
     );
 
     if (!mounted) return;
     if (widget.isRetake) {
+      ref.invalidate(riskControllerProvider);
       Navigator.of(context).pop();
     } else {
+      ref.read(authControllerProvider.notifier).markOnboardingComplete();
       context.go(AppRoutes.home);
     }
   }
@@ -284,14 +291,21 @@ class _RiskQuestionnaireScreenState
 // ── Score Dialog ─────────────────────────────────────────────
 
 class _ScoreDialog extends StatelessWidget {
-  const _ScoreDialog({required this.score});
+  const _ScoreDialog({
+    required this.score,
+    this.rawScore,
+    this.riskLevel,
+  });
+
   final double score;
+  final int? rawScore;
+  final String? riskLevel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 3), () {
       if (context.mounted) Navigator.of(context).pop();
     });
 
@@ -314,7 +328,7 @@ class _ScoreDialog extends StatelessWidget {
             ),
             SizedBox(height: 8.h),
             Text(
-              score.toStringAsFixed(1),
+              rawScore != null ? '$rawScore' : score.toStringAsFixed(1),
               style: GoogleFonts.manrope(
                 fontSize: 48.sp,
                 fontWeight: FontWeight.w800,
@@ -323,12 +337,30 @@ class _ScoreDialog extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'out of 4',
+              rawScore != null ? 'out of 100' : 'out of 4',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14.sp,
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
+            if (riskLevel != null) ...[
+              SizedBox(height: 12.h),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+                child: Text(
+                  riskLevel!,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

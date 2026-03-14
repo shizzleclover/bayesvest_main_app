@@ -92,7 +92,10 @@ class HomeScreen extends ConsumerWidget {
                             ),
                           ),
                           SizedBox(height: 12.h),
-                          RiskBadge(riskScore: risk.riskScore),
+                          RiskBadge(
+                            band: risk.riskScore,
+                            rawScore: risk.rawScore,
+                          ),
                         ],
                       ),
                     );

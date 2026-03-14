@@ -59,9 +59,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
           );
       }
-      if (next is Authenticated) {
-        context.go(AppRoutes.onboardingProfile);
-      }
+      // Router redirect handles navigation to onboarding for new users.
     });
 
     return Scaffold(

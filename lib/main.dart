@@ -5,10 +5,21 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/logger.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load();
+
+  try {
+    await dotenv.load(fileName: '.env');
+    AppLogger.info(
+      'dotenv loaded  BASE_URL="${dotenv.env['BASE_URL']}"',
+      tag: 'Boot',
+    );
+  } catch (e, st) {
+    AppLogger.error('dotenv failed to load', tag: 'Boot', error: e, stackTrace: st);
+  }
+
   runApp(const ProviderScope(child: MainApp()));
 }
 

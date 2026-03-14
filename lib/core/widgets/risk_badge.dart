@@ -6,11 +6,18 @@ import '../constants/dimensions.dart';
 
 /// Color-coded risk level badge.
 ///
-/// Maps a numeric risk score (0-4) to a label and colour.
+/// Accepts [band] (0-4) for the colour/label and [rawScore] (0-100)
+/// for the numeric display. Falls back to showing band if rawScore
+/// is not provided.
 class RiskBadge extends StatelessWidget {
-  const RiskBadge({super.key, required this.riskScore});
+  const RiskBadge({
+    super.key,
+    required this.band,
+    this.rawScore,
+  });
 
-  final double riskScore;
+  final double band;
+  final int? rawScore;
 
   static const _levels = [
     ('Conservative', Color(0xFF16A34A)),
@@ -21,13 +28,14 @@ class RiskBadge extends StatelessWidget {
   ];
 
   (String, Color) get _level {
-    final idx = riskScore.round().clamp(0, _levels.length - 1);
+    final idx = band.round().clamp(0, _levels.length - 1);
     return _levels[idx];
   }
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = _level;
+    final scoreText = rawScore != null ? '$rawScore/100' : '${band.toStringAsFixed(0)}/4';
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
@@ -45,7 +53,7 @@ class RiskBadge extends StatelessWidget {
           ),
           SizedBox(width: 6.w),
           Text(
-            '$label \u2022 ${riskScore.toStringAsFixed(0)}/4',
+            '$label \u2022 $scoreText',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13.sp,
               fontWeight: FontWeight.w600,
