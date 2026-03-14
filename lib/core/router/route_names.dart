@@ -21,7 +21,7 @@ class AppRoutes {
   static const String editProfile = '/profile/edit';
   static const String retakeRisk = '/profile/retake-risk';
   static const String settings = '/settings';
-  static const String projections = '/projections';
+  static const String projections = '/simulation';
   static const String portfolioHistory = '/portfolio/history';
   static const String goals = '/goals';
   static const String watchlist = '/watchlist';

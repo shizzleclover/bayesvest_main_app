@@ -57,6 +57,11 @@ class _MainShellState extends State<MainShell> {
                 label: 'Portfolio',
               ),
               NavigationDestination(
+                icon: Icon(Icons.auto_graph_outlined),
+                selectedIcon: Icon(Icons.auto_graph_rounded),
+                label: 'Simulation',
+              ),
+              NavigationDestination(
                 icon: Icon(Icons.person_outline_rounded),
                 selectedIcon: Icon(Icons.person_rounded),
                 label: 'Profile',

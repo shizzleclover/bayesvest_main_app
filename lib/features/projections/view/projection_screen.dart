@@ -56,7 +56,7 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
     final finalExpected = expected.isNotEmpty ? expected.last : 0.0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Growth Projector')),
+      appBar: AppBar(title: const Text('Simulation')),
       body: SingleChildScrollView(
         padding: AppSpacing.screenPadding,
         child: Column(

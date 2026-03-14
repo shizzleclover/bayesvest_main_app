@@ -1,8 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/dimensions.dart';
 import '../../../core/router/route_names.dart';
@@ -284,10 +286,10 @@ class HomeScreen extends ConsumerWidget {
                   child: Row(
                     children: [
                       _QuickAction(
-                        icon: Icons.trending_up_rounded,
-                        label: 'Projections',
+                        icon: Icons.auto_graph_rounded,
+                        label: 'Simulation',
                         colorScheme: colorScheme,
-                        onTap: () => context.push(AppRoutes.projections),
+                        onTap: () => context.go(AppRoutes.projections),
                       ),
                       SizedBox(width: 12.w),
                       _QuickAction(
@@ -327,7 +329,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 SizedBox(height: 14.h),
                 SizedBox(
-                  height: 140.h,
+                  height: 220.h,
                   child: newsAsync.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (_, __) => Center(
@@ -356,63 +358,10 @@ class HomeScreen extends ConsumerWidget {
 
                 SizedBox(height: 32.h),
 
-                // ── Investing Tips ──────────────────────────
+                // ── Investing Tips (collapsible) ─────────
                 AnimatedListItem(
                   index: 7,
-                  child: Text('Investing Tips',
-                      style: GoogleFonts.manrope(
-                          fontSize: 20.sp,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface)),
-                ),
-                SizedBox(height: 14.h),
-                SizedBox(
-                  height: 165.h,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _investingTips.length,
-                    separatorBuilder: (_, __) => SizedBox(width: 12.w),
-                    itemBuilder: (context, i) {
-                      final tip = _investingTips[i];
-                      return Container(
-                        width: 260.w,
-                        padding: EdgeInsets.all(16.w),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerLowest,
-                          borderRadius: AppRadius.card,
-                          boxShadow: AppShadows.card,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 36.w,
-                              height: 36.w,
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(10.r),
-                              ),
-                              child: Icon(tip.icon, size: 18.w, color: colorScheme.primary),
-                            ),
-                            SizedBox(height: 12.h),
-                            Text(tip.title,
-                                style: GoogleFonts.manrope(
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.onSurface)),
-                            SizedBox(height: 6.h),
-                            Text(tip.body,
-                                style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12.sp,
-                                    color: colorScheme.onSurfaceVariant,
-                                    height: 1.45),
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                  child: _CollapsibleTips(colorScheme: colorScheme),
                 ),
 
                 SizedBox(height: 32.h),
@@ -523,52 +472,190 @@ class _NewsCard extends StatelessWidget {
   final NewsArticle article;
   final ColorScheme colorScheme;
 
+  Future<void> _openUrl() async {
+    if (article.url.isEmpty) return;
+    final uri = Uri.tryParse(article.url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasImage = article.imageUrl.isNotEmpty;
+    return GestureDetector(
+      onTap: _openUrl,
+      child: Container(
+        width: 280.w,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: AppRadius.card,
+          boxShadow: AppShadows.card,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasImage)
+              SizedBox(
+                height: 110.h,
+                width: double.infinity,
+                child: CachedNetworkImage(
+                  imageUrl: article.imageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    color: colorScheme.surfaceContainerLow,
+                    child: Center(
+                      child: Icon(Icons.image_outlined,
+                          size: 28.w, color: colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    color: colorScheme.surfaceContainerLow,
+                    child: Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          size: 28.w, color: colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(12.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(article.title,
+                        style: GoogleFonts.manrope(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(article.source,
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.primary),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        Text(article.timeAgo,
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10.sp,
+                                color: colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollapsibleTips extends StatefulWidget {
+  const _CollapsibleTips({required this.colorScheme});
+  final ColorScheme colorScheme;
+
+  @override
+  State<_CollapsibleTips> createState() => _CollapsibleTipsState();
+}
+
+class _CollapsibleTipsState extends State<_CollapsibleTips> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.colorScheme;
     return Container(
-      width: 280.w,
-      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
+        color: cs.surfaceContainerLowest,
         borderRadius: AppRadius.card,
         boxShadow: AppShadows.card,
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(article.title,
-              style: GoogleFonts.manrope(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis),
-          SizedBox(height: 8.h),
-          Expanded(
-            child: Text(article.summary,
-                style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.sp,
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.4),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis),
-          ),
-          SizedBox(height: 6.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(article.source,
-                    style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.primary),
-                    overflow: TextOverflow.ellipsis),
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline_rounded,
+                      size: 20.w, color: cs.primary),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Text('Investing Tips',
+                        style: GoogleFonts.manrope(
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface)),
+                  ),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 250),
+                    child: Icon(Icons.expand_more_rounded,
+                        color: cs.onSurfaceVariant),
+                  ),
+                ],
               ),
-              Text(article.timeAgo,
-                  style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.sp, color: colorScheme.onSurfaceVariant)),
-            ],
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Column(
+              children: _investingTips.map((tip) {
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 14.h),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 36.w,
+                        height: 36.w,
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Icon(tip.icon, size: 18.w, color: cs.primary),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(tip.title,
+                                style: GoogleFonts.manrope(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.onSurface)),
+                            SizedBox(height: 4.h),
+                            Text(tip.body,
+                                style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.sp,
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.45)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 300),
           ),
         ],
       ),

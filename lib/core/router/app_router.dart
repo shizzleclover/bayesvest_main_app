@@ -129,6 +129,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: AppRoutes.projections,
+                pageBuilder: (context, state) => fadeTransition(
+                    state: state, child: const ProjectionScreen()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: AppRoutes.profile,
                 pageBuilder: (context, state) => fadeTransition(
                     state: state, child: const ProfileScreen()),
@@ -162,11 +171,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.settings,
         pageBuilder: (context, state) => slideUpTransition(
             state: state, child: const SettingsScreen()),
-      ),
-      GoRoute(
-        path: AppRoutes.projections,
-        pageBuilder: (context, state) => slideUpTransition(
-            state: state, child: const ProjectionScreen()),
       ),
       GoRoute(
         path: AppRoutes.portfolioHistory,

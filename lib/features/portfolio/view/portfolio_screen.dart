@@ -247,7 +247,7 @@ class _InvestmentInputState extends State<_InvestmentInput> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'How much do you want to invest?',
+            'Visualize your investment',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14.sp,
               fontWeight: FontWeight.w600,
@@ -256,7 +256,7 @@ class _InvestmentInputState extends State<_InvestmentInput> {
           ),
           SizedBox(height: 4.h),
           Text(
-            'Enter an amount to see how your money will be spread across assets',
+            'Enter a total amount to see how it would be allocated across your assets',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12.sp,
               color: widget.colorScheme.onSurfaceVariant,
