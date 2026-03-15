@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,9 +9,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/dimensions.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/widgets/animated_list_item.dart';
-import '../../portfolio/controller/portfolio_controller.dart';
 
 class ProjectionScreen extends ConsumerStatefulWidget {
   const ProjectionScreen({super.key});
@@ -24,6 +26,16 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
   final _monthlyCtrl = TextEditingController(text: '500');
   double _years = 10;
 
+  bool _loading = false;
+  String? _error;
+  Map<String, dynamic>? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _runSimulation());
+  }
+
   @override
   void dispose() {
     _initialCtrl.dispose();
@@ -34,26 +46,52 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
   double _parse(TextEditingController c) =>
       double.tryParse(c.text.replaceAll(',', '').trim()) ?? 0;
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final portfolioAsync = ref.watch(portfolioControllerProvider);
-    final currency = ref.watch(currencyProvider);
-
-    final portfolio = portfolioAsync.asData?.value;
-    final annualReturn = (portfolio?.expectedReturn1y ?? 0.08);
-    const volatility = 0.12;
-
+  Future<void> _runSimulation() async {
     final pv = _parse(_initialCtrl);
     final pmt = _parse(_monthlyCtrl);
     final years = _years.round();
 
-    final optimistic = _project(pv, pmt, annualReturn + volatility, years);
-    final expected = _project(pv, pmt, annualReturn, years);
-    final pessimistic =
-        _project(pv, pmt, math.max(annualReturn - volatility, 0.005), years);
+    if (pv <= 0) {
+      setState(() => _error = 'Enter an initial investment amount');
+      return;
+    }
 
-    final finalExpected = expected.isNotEmpty ? expected.last : 0.0;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final dio = ref.read(dioProvider);
+      final resp = await dio.post(ApiEndpoints.portfolioSimulate, data: {
+        'initial_investment': pv,
+        'monthly_contribution': pmt,
+        'years': years,
+      });
+      setState(() {
+        _result = resp.data as Map<String, dynamic>;
+        _loading = false;
+      });
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map
+          ? (e.response!.data as Map)['error']?.toString() ?? 'Simulation failed'
+          : 'Simulation failed';
+      setState(() {
+        _error = msg;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currency = ref.watch(currencyProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Simulation')),
@@ -67,7 +105,7 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
             AnimatedListItem(
               index: 0,
               child: Text(
-                'See how your investment could grow',
+                'See exactly how your personalized portfolio could grow over time',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14.sp,
                   color: colorScheme.onSurfaceVariant,
@@ -77,7 +115,7 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
 
             SizedBox(height: 24.h),
 
-            // ── Inputs ────────────────────────────────────
+            // ── Inputs with explanations ───────────────────
             AnimatedListItem(
               index: 1,
               child: Container(
@@ -88,21 +126,23 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
                   boxShadow: AppShadows.card,
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _LabeledInput(
                       label: 'Initial investment',
+                      hint: 'The lump sum you want to start with',
                       controller: _initialCtrl,
                       currency: currency,
                       colorScheme: colorScheme,
-                      onChanged: () => setState(() {}),
                     ),
                     SizedBox(height: 16.h),
                     _LabeledInput(
                       label: 'Monthly contribution',
+                      hint:
+                          'How much you plan to add every month \u2014 even small amounts compound over time',
                       controller: _monthlyCtrl,
                       currency: currency,
                       colorScheme: colorScheme,
-                      onChanged: () => setState(() {}),
                     ),
                     SizedBox(height: 20.h),
                     Row(
@@ -112,7 +152,7 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
                             style: GoogleFonts.plusJakartaSans(
                                 fontSize: 13.sp,
                                 color: colorScheme.onSurfaceVariant)),
-                        Text('$years years',
+                        Text('${_years.round()} years',
                             style: GoogleFonts.manrope(
                                 fontSize: 14.sp,
                                 fontWeight: FontWeight.w700,
@@ -126,104 +166,27 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
                       divisions: 29,
                       onChanged: (v) => setState(() => _years = v),
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 28.h),
-
-            // ── Result highlight ──────────────────────────
-            AnimatedListItem(
-              index: 2,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(20.w),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      colorScheme.primary.withValues(alpha: 0.06),
-                      colorScheme.tertiary.withValues(alpha: 0.06),
-                    ],
-                  ),
-                  borderRadius: AppRadius.card,
-                ),
-                child: Column(
-                  children: [
-                    Text('Projected value in $years years',
-                        style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13.sp,
-                            color: colorScheme.onSurfaceVariant)),
-                    SizedBox(height: 8.h),
                     Text(
-                      formatAmount(finalExpected, currency),
-                      style: GoogleFonts.manrope(
-                        fontSize: 32.sp,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      'based on ${(annualReturn * 100).toStringAsFixed(1)}% expected annual return',
+                      'How many years you plan to stay invested. Longer horizons typically mean higher returns.',
                       style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.sp,
-                          color: colorScheme.onSurfaceVariant),
+                          fontSize: 11.sp,
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.4),
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 28.h),
-
-            // ── Chart ─────────────────────────────────────
-            AnimatedListItem(
-              index: 3,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(20.w),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLowest,
-                  borderRadius: AppRadius.card,
-                  boxShadow: AppShadows.card,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _LegendDot(color: const Color(0xFF10B981)),
-                        SizedBox(width: 6.w),
-                        Text('Optimistic',
-                            style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11.sp,
-                                color: colorScheme.onSurfaceVariant)),
-                        SizedBox(width: 16.w),
-                        _LegendDot(color: colorScheme.primary),
-                        SizedBox(width: 6.w),
-                        Text('Expected',
-                            style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11.sp,
-                                color: colorScheme.onSurfaceVariant)),
-                        SizedBox(width: 16.w),
-                        _LegendDot(color: const Color(0xFFF59E0B)),
-                        SizedBox(width: 6.w),
-                        Text('Pessimistic',
-                            style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11.sp,
-                                color: colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                    SizedBox(height: 20.h),
+                    SizedBox(height: 16.h),
                     SizedBox(
-                      height: 220.h,
-                      child: _ProjectionChart(
-                        optimistic: optimistic,
-                        expected: expected,
-                        pessimistic: pessimistic,
-                        colorScheme: colorScheme,
-                        currency: currency,
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _loading ? null : _runSimulation,
+                        icon: _loading
+                            ? SizedBox(
+                                width: 16.w,
+                                height: 16.w,
+                                child: const CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.play_arrow_rounded),
+                        label: Text(_loading ? 'Simulating...' : 'Run Simulation'),
                       ),
                     ),
                   ],
@@ -233,36 +196,342 @@ class _ProjectionScreenState extends ConsumerState<ProjectionScreen> {
 
             SizedBox(height: 28.h),
 
-            // ── Breakdown ─────────────────────────────────
-            AnimatedListItem(
-              index: 4,
-              child: _BreakdownCard(
-                years: years,
-                optimistic: optimistic.isNotEmpty ? optimistic.last : 0,
-                expected: finalExpected,
-                pessimistic: pessimistic.isNotEmpty ? pessimistic.last : 0,
-                totalContributed: pv + (pmt * 12 * years),
-                currency: currency,
-                colorScheme: colorScheme,
+            if (_error != null)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20.h),
+                  child: Text(_error!,
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.sp, color: colorScheme.error)),
+                ),
               ),
-            ),
 
-            SizedBox(height: 40.h),
+            if (_result != null) ...[
+              // ── Result highlight ──────────────────────────
+              _buildResultHighlight(colorScheme, currency),
+              SizedBox(height: 28.h),
+              _buildChart(colorScheme, currency),
+              SizedBox(height: 28.h),
+              _buildBreakdown(colorScheme, currency),
+              SizedBox(height: 28.h),
+              _buildAssetProjections(colorScheme, currency),
+              SizedBox(height: 40.h),
+            ],
           ],
         ),
       ),
     );
   }
 
-  List<double> _project(double pv, double pmt, double r, int years) {
-    final monthly = r / 12;
-    final points = <double>[pv];
-    var balance = pv;
-    for (var m = 1; m <= years * 12; m++) {
-      balance = balance * (1 + monthly) + pmt;
-      if (m % 12 == 0) points.add(balance);
-    }
-    return points;
+  Widget _buildResultHighlight(ColorScheme cs, AppCurrency currency) {
+    final agg = _result!['aggregate'] as Map<String, dynamic>;
+    final expected = (agg['expected'] as List).last;
+    final portfolioReturn = _result!['portfolio_expected_return'] ?? 0;
+    final years = _result!['years'] ?? 0;
+
+    return AnimatedListItem(
+      index: 2,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.w),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              cs.primary.withValues(alpha: 0.06),
+              cs.tertiary.withValues(alpha: 0.06),
+            ],
+          ),
+          borderRadius: AppRadius.card,
+        ),
+        child: Column(
+          children: [
+            Text('Projected value in $years years',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.sp, color: cs.onSurfaceVariant)),
+            SizedBox(height: 8.h),
+            Text(
+              formatAmount((expected as num).toDouble(), currency),
+              style: GoogleFonts.manrope(
+                  fontSize: 32.sp,
+                  fontWeight: FontWeight.w700,
+                  color: cs.primary),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'Based on your portfolio\u2019s $portfolioReturn% expected annual return',
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.sp, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChart(ColorScheme cs, AppCurrency currency) {
+    final agg = _result!['aggregate'] as Map<String, dynamic>;
+    final opt = (agg['optimistic'] as List).cast<num>().map((e) => e.toDouble()).toList();
+    final exp = (agg['expected'] as List).cast<num>().map((e) => e.toDouble()).toList();
+    final pes = (agg['pessimistic'] as List).cast<num>().map((e) => e.toDouble()).toList();
+
+    return AnimatedListItem(
+      index: 3,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.w),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLowest,
+          borderRadius: AppRadius.card,
+          boxShadow: AppShadows.card,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _LegendDot(color: const Color(0xFF10B981)),
+                SizedBox(width: 6.w),
+                Text('Optimistic',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.sp, color: cs.onSurfaceVariant)),
+                SizedBox(width: 16.w),
+                _LegendDot(color: cs.primary),
+                SizedBox(width: 6.w),
+                Text('Expected',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.sp, color: cs.onSurfaceVariant)),
+                SizedBox(width: 16.w),
+                _LegendDot(color: const Color(0xFFF59E0B)),
+                SizedBox(width: 6.w),
+                Text('Pessimistic',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.sp, color: cs.onSurfaceVariant)),
+              ],
+            ),
+            SizedBox(height: 20.h),
+            SizedBox(
+              height: 220.h,
+              child: _ProjectionChart(
+                optimistic: opt,
+                expected: exp,
+                pessimistic: pes,
+                colorScheme: cs,
+                currency: currency,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              'The shaded area shows the range of possible outcomes. '
+              'Optimistic assumes higher returns, pessimistic assumes lower.',
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11.sp,
+                  color: cs.onSurfaceVariant,
+                  height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBreakdown(ColorScheme cs, AppCurrency currency) {
+    final agg = _result!['aggregate'] as Map<String, dynamic>;
+    final opt = (agg['optimistic'] as List).last as num;
+    final exp = (agg['expected'] as List).last as num;
+    final pes = (agg['pessimistic'] as List).last as num;
+    final total = (_result!['total_contributed'] as num).toDouble();
+    final years = _result!['years'] ?? 0;
+
+    return AnimatedListItem(
+      index: 4,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.w),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLowest,
+          borderRadius: AppRadius.card,
+          boxShadow: AppShadows.card,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('After $years years',
+                style: GoogleFonts.manrope(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface)),
+            SizedBox(height: 16.h),
+            _Row(
+                label: 'You contribute',
+                value: formatAmount(total, currency),
+                colorScheme: cs),
+            _Row(
+                label: 'Optimistic scenario',
+                value: formatAmount(opt.toDouble(), currency),
+                colorScheme: cs,
+                valueColor: const Color(0xFF10B981)),
+            _Row(
+                label: 'Expected scenario',
+                value: formatAmount(exp.toDouble(), currency),
+                colorScheme: cs,
+                valueColor: cs.primary),
+            _Row(
+                label: 'Pessimistic scenario',
+                value: formatAmount(pes.toDouble(), currency),
+                colorScheme: cs,
+                valueColor: const Color(0xFFF59E0B)),
+            SizedBox(height: 8.h),
+            _Row(
+              label: 'Expected profit',
+              value: formatAmount(exp.toDouble() - total, currency),
+              colorScheme: cs,
+              valueColor: exp.toDouble() - total >= 0
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFEF4444),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssetProjections(ColorScheme cs, AppCurrency currency) {
+    final assets = (_result!['asset_projections'] as List?) ?? [];
+    if (assets.isEmpty) return const SizedBox.shrink();
+
+    return AnimatedListItem(
+      index: 5,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Per-Asset Breakdown',
+              style: GoogleFonts.manrope(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface)),
+          SizedBox(height: 6.h),
+          Text(
+            'How each asset in your portfolio is projected to perform individually',
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.sp, color: cs.onSurfaceVariant),
+          ),
+          SizedBox(height: 16.h),
+          ...assets.map<Widget>((a) {
+            final asset = a as Map<String, dynamic>;
+            final contributed = (asset['total_contributed'] as num).toDouble();
+            final expectedFinal = (asset['expected_final'] as num).toDouble();
+            final profit = (asset['expected_profit'] as num).toDouble();
+            final isProfitable = profit >= 0;
+
+            return Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(bottom: 12.h),
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLowest,
+                borderRadius: AppRadius.card,
+                boxShadow: AppShadows.card,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(asset['name'] ?? asset['ticker'],
+                                style: GoogleFonts.manrope(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.onSurface)),
+                            SizedBox(height: 2.h),
+                            Text(
+                              '${asset['ticker']} \u2022 ${asset['asset_class']} \u2022 ${asset['weight']}% of portfolio',
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.sp,
+                                  color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 10.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: isProfitable
+                              ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                              : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Text(
+                          isProfitable
+                              ? '+${formatAmount(profit, currency)}'
+                              : formatAmount(profit, currency),
+                          style: GoogleFonts.manrope(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w700,
+                            color: isProfitable
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12.h),
+                  Row(
+                    children: [
+                      _MiniStat(
+                          label: 'Invested',
+                          value: formatAmount(contributed, currency),
+                          cs: cs),
+                      SizedBox(width: 12.w),
+                      _MiniStat(
+                          label: 'Expected Value',
+                          value: formatAmount(expectedFinal, currency),
+                          cs: cs),
+                      SizedBox(width: 12.w),
+                      _MiniStat(
+                          label: 'Annual Return',
+                          value: '${asset['expected_annual_return']}%',
+                          cs: cs),
+                    ],
+                  ),
+                  SizedBox(height: 10.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Volatility: ${asset['volatility']}%',
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11.sp, color: cs.onSurfaceVariant)),
+                      Row(
+                        children: [
+                          Text('Optimistic: ',
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.sp,
+                                  color: cs.onSurfaceVariant)),
+                          Text(
+                              formatAmount(
+                                  (asset['optimistic_final'] as num)
+                                      .toDouble(),
+                                  currency),
+                              style: GoogleFonts.manrope(
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF10B981))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 }
 
@@ -286,7 +555,7 @@ class _ProjectionChart extends StatelessWidget {
   Widget build(BuildContext context) {
     if (expected.length < 2) {
       return Center(
-          child: Text('Adjust inputs above',
+          child: Text('Run the simulation to see results',
               style: GoogleFonts.plusJakartaSans(
                   fontSize: 13.sp, color: colorScheme.onSurfaceVariant)));
     }
@@ -302,9 +571,12 @@ class _ProjectionChart extends StatelessWidget {
       LineChartData(
         gridData: const FlGridData(show: false),
         titlesData: FlTitlesData(
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -361,61 +633,7 @@ class _ProjectionChart extends StatelessWidget {
   }
 }
 
-// ── Breakdown Card ────────────────────────────────────────────
-
-class _BreakdownCard extends StatelessWidget {
-  const _BreakdownCard({
-    required this.years,
-    required this.optimistic,
-    required this.expected,
-    required this.pessimistic,
-    required this.totalContributed,
-    required this.currency,
-    required this.colorScheme,
-  });
-  final int years;
-  final double optimistic;
-  final double expected;
-  final double pessimistic;
-  final double totalContributed;
-  final AppCurrency currency;
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: AppRadius.card,
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('After $years years',
-              style: GoogleFonts.manrope(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface)),
-          SizedBox(height: 16.h),
-          _Row(label: 'You contribute', value: formatAmount(totalContributed, currency), colorScheme: colorScheme),
-          _Row(label: 'Optimistic scenario', value: formatAmount(optimistic, currency), colorScheme: colorScheme, valueColor: const Color(0xFF10B981)),
-          _Row(label: 'Expected scenario', value: formatAmount(expected, currency), colorScheme: colorScheme, valueColor: colorScheme.primary),
-          _Row(label: 'Pessimistic scenario', value: formatAmount(pessimistic, currency), colorScheme: colorScheme, valueColor: const Color(0xFFF59E0B)),
-          SizedBox(height: 8.h),
-          _Row(
-            label: 'Expected growth',
-            value: formatAmount(expected - totalContributed, currency),
-            colorScheme: colorScheme,
-            valueColor: const Color(0xFF10B981),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// ── Helpers ────────────────────────────────────────────────────
 
 class _Row extends StatelessWidget {
   const _Row({
@@ -450,21 +668,51 @@ class _Row extends StatelessWidget {
   }
 }
 
-// ── Input helper ──────────────────────────────────────────────
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.label,
+    required this.value,
+    required this.cs,
+  });
+  final String label;
+  final String value;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10.sp, color: cs.onSurfaceVariant)),
+          SizedBox(height: 2.h),
+          Text(value,
+              style: GoogleFonts.manrope(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface),
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+}
 
 class _LabeledInput extends StatelessWidget {
   const _LabeledInput({
     required this.label,
+    required this.hint,
     required this.controller,
     required this.currency,
     required this.colorScheme,
-    required this.onChanged,
   });
   final String label;
+  final String hint;
   final TextEditingController controller;
   final AppCurrency currency;
   final ColorScheme colorScheme;
-  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +721,15 @@ class _LabeledInput extends StatelessWidget {
       children: [
         Text(label,
             style: GoogleFonts.plusJakartaSans(
-                fontSize: 12.sp, color: colorScheme.onSurfaceVariant)),
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface)),
+        SizedBox(height: 4.h),
+        Text(hint,
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 11.sp,
+                color: colorScheme.onSurfaceVariant,
+                height: 1.4)),
         SizedBox(height: 6.h),
         TextField(
           controller: controller,
@@ -487,7 +743,6 @@ class _LabeledInput extends StatelessWidget {
                 fontSize: 14.sp, color: colorScheme.onSurfaceVariant),
             isDense: true,
           ),
-          onChanged: (_) => onChanged(),
         ),
       ],
     );

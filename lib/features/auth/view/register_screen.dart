@@ -23,6 +23,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _confirmCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  String _password = '';
 
   @override
   void dispose() {
@@ -155,6 +156,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.next,
                     enabled: !isLoading,
+                    onChanged: (v) => setState(() => _password = v),
                     decoration: InputDecoration(
                       hintText: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
                       suffixIcon: IconButton(
@@ -171,10 +173,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Password is required';
-                      if (v.length < 6) return 'Must be at least 6 characters';
+                      if (v.length < 8) return 'Must be at least 8 characters';
+                      if (!v.contains(RegExp(r'[A-Z]'))) {
+                        return 'Must contain an uppercase letter';
+                      }
+                      if (!v.contains(RegExp(r'[a-z]'))) {
+                        return 'Must contain a lowercase letter';
+                      }
+                      if (!v.contains(RegExp(r'[0-9]'))) {
+                        return 'Must contain a number';
+                      }
+                      if (!v.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'))) {
+                        return 'Must contain a special character';
+                      }
                       return null;
                     },
                   ),
+                  if (_password.isNotEmpty) ...[
+                    SizedBox(height: 12.h),
+                    _PasswordStrengthMeter(
+                        password: _password, colorScheme: colorScheme),
+                  ],
 
                   SizedBox(height: 20.h),
 
@@ -269,4 +288,109 @@ class _FieldLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PasswordStrengthMeter extends StatelessWidget {
+  const _PasswordStrengthMeter({
+    required this.password,
+    required this.colorScheme,
+  });
+  final String password;
+  final ColorScheme colorScheme;
+
+  static const _rules = [
+    _PwRule('At least 8 characters', _hasLength),
+    _PwRule('One uppercase letter (A\u2013Z)', _hasUpper),
+    _PwRule('One lowercase letter (a\u2013z)', _hasLower),
+    _PwRule('One number (0\u20139)', _hasDigit),
+    _PwRule('One special character (!@#\$...)', _hasSpecial),
+  ];
+
+  static bool _hasLength(String p) => p.length >= 8;
+  static bool _hasUpper(String p) => p.contains(RegExp(r'[A-Z]'));
+  static bool _hasLower(String p) => p.contains(RegExp(r'[a-z]'));
+  static bool _hasDigit(String p) => p.contains(RegExp(r'[0-9]'));
+  static bool _hasSpecial(String p) =>
+      p.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
+
+  @override
+  Widget build(BuildContext context) {
+    final passed = _rules.where((r) => r.test(password)).length;
+    final fraction = passed / _rules.length;
+
+    final Color barColor;
+    final String label;
+    if (fraction <= 0.2) {
+      barColor = const Color(0xFFEF4444);
+      label = 'Very weak';
+    } else if (fraction <= 0.4) {
+      barColor = const Color(0xFFF97316);
+      label = 'Weak';
+    } else if (fraction <= 0.6) {
+      barColor = const Color(0xFFF59E0B);
+      label = 'Fair';
+    } else if (fraction <= 0.8) {
+      barColor = const Color(0xFF3B82F6);
+      label = 'Good';
+    } else {
+      barColor = const Color(0xFF10B981);
+      label = 'Strong';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4.r),
+                child: LinearProgressIndicator(
+                  value: fraction,
+                  minHeight: 6.h,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation(barColor),
+                ),
+              ),
+            ),
+            SizedBox(width: 10.w),
+            Text(label,
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600,
+                    color: barColor)),
+          ],
+        ),
+        SizedBox(height: 10.h),
+        ..._rules.map((rule) {
+          final ok = rule.test(password);
+          return Padding(
+            padding: EdgeInsets.only(bottom: 4.h),
+            child: Row(
+              children: [
+                Icon(
+                  ok ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  size: 16.w,
+                  color: ok ? const Color(0xFF10B981) : colorScheme.outline,
+                ),
+                SizedBox(width: 8.w),
+                Text(rule.label,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.sp,
+                        color: ok
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurfaceVariant)),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _PwRule {
+  final String label;
+  final bool Function(String) test;
+  const _PwRule(this.label, this.test);
 }

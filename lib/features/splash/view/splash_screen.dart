@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../features/auth/controller/auth_controller.dart';
@@ -103,33 +104,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+
+                    SvgPicture.asset('assets/logo.svg'),
                     // ── Logo mark ────────────────────────────
-                    Container(
-                      width: 72.w,
-                      height: 72.w,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            colorScheme.primary,
-                            colorScheme.primaryContainer,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20.r),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'B',
-                          style: GoogleFonts.manrope(
-                            fontSize: 36.sp,
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.onPrimary,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
+                    // Container(
+                    //   width: 72.w,
+                    //   height: 72.w,
+                    //   decoration: BoxDecoration(
+                    //     gradient: LinearGradient(
+                    //       begin: Alignment.topLeft,
+                    //       end: Alignment.bottomRight,
+                    //       colors: [
+                    //         colorScheme.primary,
+                    //         colorScheme.primaryContainer,
+                    //       ],
+                    //     ),
+                    //     borderRadius: BorderRadius.circular(20.r),
+                    //   ),
+                    //   child: Center(
+                    //     child: Text(
+                    //       'B',
+                    //       style: GoogleFonts.manrope(
+                    //         fontSize: 36.sp,
+                    //         fontWeight: FontWeight.w800,
+                    //         color: colorScheme.onPrimary,
+                    //         height: 1,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
 
                     SizedBox(height: 24.h),
 

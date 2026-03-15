@@ -47,7 +47,7 @@ class AppRadius {
   static BorderRadius get input => BorderRadius.circular(10.r);
 
   /// Buttons (DESIGN.md §5: 12 px).
-  static BorderRadius get button => BorderRadius.circular(12.r);
+  static BorderRadius get button => BorderRadius.circular(65.r);
 
   /// Cards (DESIGN.md §5: 16 px).
   static BorderRadius get card => BorderRadius.circular(16.r);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -69,32 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(height: 24.h),
-
-                  Center(
-                    child: Container(
-                      width: 56.w,
-                      height: 56.w,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            colorScheme.primary,
-                            colorScheme.primaryContainer,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(16.r),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.insights_rounded,
-                          color: colorScheme.onPrimary,
-                          size: 28.w,
-                        ),
-                      ),
-                    ),
-                  ),
-
+                  Center(child: SvgPicture.asset('assets/logo.svg')),      
                   SizedBox(height: 32.h),
 
                   // ── Heading ────────────────────────────────
@@ -293,7 +269,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               children: [
                                 TextSpan(
-                                  text: 'Did you know? ',
+                                  text: 'Did you know? \n ',
                                   style: GoogleFonts.plusJakartaSans(
                                     fontWeight: FontWeight.w600,
                                     color: colorScheme.onSurface,
